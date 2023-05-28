@@ -3,6 +3,7 @@ import csv
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
+import re
 
 def fetch_events():
     # Choose one
@@ -40,7 +41,7 @@ def fetch_events():
         row.append(data.text.strip()) if data else row.append('')
 
         data = tr.find('div', class_='small fw-500 venue')
-        row.append(data.text.replace('\xa0•\xa0Online', '')) if data else row.append('')
+        row.append(re.sub(r'[^a-zA-Z0-9. ]','',data.text.replace('Online',''))) if data else row.append('')
 
         data = tr.find('div', class_='small text-wrap text-break')
         row.append(data.text) if data else row.append('')
@@ -90,4 +91,4 @@ def fetch_ratings():
         if duplicated_series[row] == True:
             print(row)
 
-    ratings_df.to_csv('ratings.csv', sep=',', encoding='utf-8')
+    ratings_df.to_csv('ratings.csv', sep=',', encoding='utf-8', index=False)

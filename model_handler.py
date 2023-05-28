@@ -24,7 +24,6 @@ def retrieval_model(user_id):
             'event_name': str(event_name),
             'relevancy_score': float(scores[i])
         }
-    print(output)
     return output
 
 # Give items a rankable value
@@ -32,7 +31,6 @@ def retrieval_model(user_id):
 def ranking_model(user_id):
     events_df = df_loader.get_events_df()
     loaded = tf.saved_model.load(ranking_model_path)
-    print(loaded.signatures)
     ratings = {}
     event_ids = list(events_df['id'])
     for event_id in event_ids:
