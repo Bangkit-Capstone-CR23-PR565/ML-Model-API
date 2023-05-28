@@ -51,7 +51,7 @@ def fetch_events():
             continue
 
         data = tr.find('td', class_='col-12 small text-muted mb-2')
-        row.append([tag.text.strip() for tag in data if tag.text.strip() != '']) if data else row.append('')
+        row.append(', '.join([tag.text.strip() for tag in data if tag.text.strip() != ''])) if data else row.append('')
 
         data = tr.find('a', class_='small fw-500 text-decoration-none px-2 xn')
         row.append(data.text) if data else row.append('')
