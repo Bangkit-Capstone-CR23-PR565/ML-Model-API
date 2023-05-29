@@ -52,7 +52,7 @@ def ranking_model(user_id):
         i += 1
     return output
 
-def tags_search_model(query, top_n=1):
+def tags_search_model(query, top_n):
     events_df = df_loader.get_events_df()
     
     # to remove string quotes correctly, we need to parse data into list first, then join it back into string
