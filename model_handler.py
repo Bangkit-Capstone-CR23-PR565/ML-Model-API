@@ -54,6 +54,8 @@ def ranking_model(user_id):
 
 def tags_search_model(query, top_n):
     events_df = df_loader.get_events_df()
+    if top_n == None:
+        top_n = len(events_df)
     
     # to remove string quotes correctly, we need to parse data into list first, then join it back into string
     event_tags_list = [value if isinstance(value, str) else '' for value in events_df['tags']]
