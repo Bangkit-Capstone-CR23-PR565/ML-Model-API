@@ -8,7 +8,6 @@ retrieval_model_path = "./retrieval_model"
 # Get most relevant items
 # Should return score, id, event_name
 def retrieval_model(user_id):
-    events_df = df_loader.get_events_df()
     loaded = tf.saved_model.load(retrieval_model_path)
     scores, event_ids = loaded([user_id])
     
@@ -18,12 +17,11 @@ def retrieval_model(user_id):
     # scores and titles should have same size
     output = []
     for i in range(len(scores)):
-        event_name = list(events_df[events_df['id']==event_ids[i]]['name'])[0]
-        output.append({
-            'event_id': int(event_ids[i]),
-            'event_name': str(event_name),
+        event_record = {
+            'id': int(event_ids[i]),
             'relevancy_score': float(scores[i])
-        })
+        } 
+        output.append(event_record)
     return output
 
 # Give items a rankable value
@@ -45,8 +43,7 @@ def ranking_model(user_id):
     for event_id, score in sorted_ratings:
         event_name = list(events_df[events_df['id']==event_id]['name'])[0]
         output.append({
-            "event_id": int(event_id),
-            "event_name": event_name,
+            "id": int(event_id),
             "rating_prediction_score": float(score[0][0])
         })
         i += 1
@@ -94,19 +91,11 @@ def tags_search_model(query, top_n):
             (events_df['description']==new_data[index])
             ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
-        tags = [value if isinstance(value, str) else '' for value in matched_events['category']]
-        event_names = [value if isinstance(value, str) else '' for value in matched_events['name']]
-        locations = [value if isinstance(value, str) else '' for value in matched_events['location']]
-        descriptions = [value if isinstance(value, str) else '' for value in matched_events['description']]
         for index in range(len(matched_events)):
             if c >= top_n:
                 break
             output.append({
-                'event_id': ids[index],
-                'name': event_names[index],
-                'location': locations[index],
-                'description': descriptions[index],
-                'category': tags[index],
+                'id': ids[index],
                 'match_score': float(score)
             })
             c += 1
