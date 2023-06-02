@@ -1,5 +1,4 @@
 from typing import Dict, Text
-import pandas as pd
 import tensorflow as tf
 import tensorflow_recommenders as tfrs
 import numpy as np
@@ -7,8 +6,6 @@ import df_loader
 
 retrieval_model_path = "./retrieval_model"
 ranking_model_path = "./ranking_model"
-events_csv_path = './events.csv'
-ratings_csv_path = './ratings.csv'
 
 
 def retrain_all():

@@ -18,7 +18,7 @@ def retrieval_model(user_id):
     # scores and titles should have same size
     output = []
     for i in range(len(scores)):
-        event_name = list(events_df[events_df['id']==event_ids[i]]['event_name'])[0]
+        event_name = list(events_df[events_df['id']==event_ids[i]]['name'])[0]
         output.append({
             'event_id': int(event_ids[i]),
             'event_name': str(event_name),
@@ -43,7 +43,7 @@ def ranking_model(user_id):
     output = []
     i = 0
     for event_id, score in sorted_ratings:
-        event_name = list(events_df[events_df['id']==event_id]['event_name'])[0]
+        event_name = list(events_df[events_df['id']==event_id]['name'])[0]
         output.append({
             "event_id": int(event_id),
             "event_name": event_name,
@@ -58,8 +58,8 @@ def tags_search_model(query, top_n):
         top_n = len(events_df)
     
     # to remove string quotes correctly, we need to parse data into list first, then join it back into string
-    event_tags_list = [value if isinstance(value, str) else '' for value in events_df['tags']]
-    event_name_list = [value if isinstance(value, str) else '' for value in events_df['event_name']]
+    event_tags_list = [value if isinstance(value, str) else '' for value in events_df['category']]
+    event_name_list = [value if isinstance(value, str) else '' for value in events_df['name']]
     event_location_list = [value if isinstance(value, str) else '' for value in events_df['location']]
     event_description_list = [value if isinstance(value, str) else '' for value in events_df['description']]
 
@@ -88,14 +88,14 @@ def tags_search_model(query, top_n):
     c=0
     for index, score in top_docs:
         matched_events = events_df[
-            (events_df['tags']==new_data[index]) |
-            (events_df['event_name']==new_data[index]) |
+            (events_df['category']==new_data[index]) |
+            (events_df['name']==new_data[index]) |
             (events_df['location']==new_data[index]) |
             (events_df['description']==new_data[index])
             ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
-        tags = [value if isinstance(value, str) else '' for value in matched_events['tags']]
-        event_names = [value if isinstance(value, str) else '' for value in matched_events['event_name']]
+        tags = [value if isinstance(value, str) else '' for value in matched_events['category']]
+        event_names = [value if isinstance(value, str) else '' for value in matched_events['name']]
         locations = [value if isinstance(value, str) else '' for value in matched_events['location']]
         descriptions = [value if isinstance(value, str) else '' for value in matched_events['description']]
         for index in range(len(matched_events)):
@@ -103,10 +103,10 @@ def tags_search_model(query, top_n):
                 break
             output.append({
                 'event_id': ids[index],
-                'event_name': event_names[index],
+                'name': event_names[index],
                 'location': locations[index],
                 'description': descriptions[index],
-                'tags': tags[index],
+                'category': tags[index],
                 'match_score': float(score)
             })
             c += 1

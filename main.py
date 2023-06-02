@@ -4,13 +4,15 @@ from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
 import model_handler
 import model_trainer
+import df_loader
 import scraper
+
 
 app = FastAPI()
 
 @app.get("/")
 def index():
-    return {"Hello": "World"}
+    return df_loader.get_processed_df().to_dict()
 
 @app.get("/most-relevant/{user_id}")
 def items(user_id: int, limit: Union[int, None] = None):
@@ -24,6 +26,7 @@ def rank(user_id: int, limit: Union[int, None] = None):
 def search(query: str, limit: Union[int, None] = None):
     return model_handler.tags_search_model(query, top_n=limit)
 
+# Current: events from database, ratings from csv
 @app.get("/update-data")
 def update_data():
     scraper.fetch_events()
@@ -40,3 +43,11 @@ def retrain():
 def scheduled_task():
     print(update_data())
     print(model_trainer.retrain_all())
+
+# def create_db():
+#     Event.__table__.create(engine)
+#     return "created"
+
+# def drop_db():
+#     Event.__table__.create(engine)
+#     return "dropped"
