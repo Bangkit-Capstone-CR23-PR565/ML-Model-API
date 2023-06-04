@@ -36,7 +36,7 @@ def ranking_model(user_id):
         }
     )
     ratings = [{
-        'event_id':int(id),
+        'id':int(id),
         'rating_prediction':float(rating[0].numpy())
         } for id,rating in zip(events_df['id'].to_list(),model_rating_predictions)]
     return sorted(ratings, key=lambda x: x['rating_prediction'], reverse=True)
