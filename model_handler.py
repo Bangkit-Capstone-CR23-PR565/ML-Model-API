@@ -8,7 +8,6 @@ retrieval_model_path = "./retrieval_model"
 # Get most relevant items
 # Should return score, id, event_name
 def retrieval_model(user_id):
-    events_df = df_loader.get_events_df()
     loaded = tf.saved_model.load(retrieval_model_path)
     scores, event_ids = loaded(tf.constant([user_id]))
     scores = [i.numpy() for i in scores[0]]
@@ -18,7 +17,7 @@ def retrieval_model(user_id):
     output = []
     for (event_id,score) in zip(event_ids,scores):
         output.append({
-            'event_id': int(event_id),
+            'id': int(event_id),
             'relevancy_score': float(score)
         })
     return output
@@ -79,19 +78,11 @@ def tags_search_model(query, top_n):
             (events_df['description']==data[index])
             ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
-        tags = [value if isinstance(value, str) else '' for value in matched_events['category']]
-        event_names = [value if isinstance(value, str) else '' for value in matched_events['name']]
-        locations = [value if isinstance(value, str) else '' for value in matched_events['location']]
-        descriptions = [value if isinstance(value, str) else '' for value in matched_events['description']]
         for index in range(len(matched_events)):
             if c >= top_n:
                 break
             output.append({
-                'event_id': ids[index],
-                'name': event_names[index],
-                'location': locations[index],
-                'description': descriptions[index],
-                'category': tags[index],
+                'id': ids[index],
                 'match_score': float(score)
             })
             c += 1
