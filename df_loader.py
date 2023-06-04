@@ -26,8 +26,5 @@ def get_combined_df():
     return pd.merge(get_ratings_df(), get_events_df(), left_on='event_id', right_on='id')
 def get_processed_df():
     processed_df = pd.merge(get_ratings_df(), get_events_df(), left_on='event_id', right_on='id')
-    processed_df = processed_df[['user_id','user_rating','event_id','location','category']]
-    location_df = pd.get_dummies(processed_df['location'])
-    location_df.rename(columns=lambda x: f'location_{x}'.lower().replace(' ', '_'), inplace=True)
-    processed_df = processed_df.drop(['location'],axis=1)
-    return pd.concat([processed_df, location_df],axis=1)
+    processed_df = processed_df[['user_id','user_rating','event_id','name','category']]
+    return processed_df

@@ -10,19 +10,16 @@ retrieval_model_path = "./retrieval_model"
 def retrieval_model(user_id):
     events_df = df_loader.get_events_df()
     loaded = tf.saved_model.load(retrieval_model_path)
-    scores, event_ids = loaded([user_id])
-    
+    scores, event_ids = loaded(tf.constant([user_id]))
     scores = [i.numpy() for i in scores[0]]
     event_ids = [i.numpy() for i in event_ids[0]]
 
     # scores and titles should have same size
     output = []
-    for i in range(len(scores)):
-        event_name = list(events_df[events_df['id']==event_ids[i]]['name'])[0]
+    for (event_id,score) in zip(event_ids,scores):
         output.append({
-            'event_id': int(event_ids[i]),
-            'event_name': str(event_name),
-            'relevancy_score': float(scores[i])
+            'event_id': int(event_id),
+            'relevancy_score': float(score)
         })
     return output
 
@@ -31,26 +28,19 @@ def retrieval_model(user_id):
 def ranking_model(user_id):
     events_df = df_loader.get_events_df()
     loaded = tf.saved_model.load(ranking_model_path)
-    ratings = {}
-    event_ids = list(events_df['id'])
-    for event_id in event_ids:
-        ratings[event_id] = loaded.ranking_model((
-            tf.constant([user_id], dtype=tf.int64),
-            tf.constant([event_id], dtype=tf.int64)
-            ))
-    sorted_ratings = list(sorted(ratings.items(), key=lambda x: x[1][0][0], reverse=True))
-
-    output = []
-    i = 0
-    for event_id, score in sorted_ratings:
-        event_name = list(events_df[events_df['id']==event_id]['name'])[0]
-        output.append({
-            "event_id": int(event_id),
-            "event_name": event_name,
-            "rating_prediction_score": float(score[0][0])
-        })
-        i += 1
-    return output
+    model_rating_predictions = loaded(
+        {
+            "event_id": tf.constant(events_df['id'].to_list(), dtype=tf.int64),
+            "name": tf.constant(events_df['name'].to_list(), dtype=tf.string),
+            "category": tf.constant(events_df['category'].to_list(), dtype=tf.string),
+            "user_id": tf.constant([user_id]*len(events_df.index), dtype=tf.int64)
+        }
+    )
+    ratings = [{
+        'event_id':int(id),
+        'rating_prediction':float(rating[0].numpy())
+        } for id,rating in zip(events_df['id'].to_list(),model_rating_predictions)]
+    return sorted(ratings, key=lambda x: x['rating_prediction'], reverse=True)
 
 def tags_search_model(query, top_n):
     events_df = df_loader.get_events_df()
@@ -65,18 +55,13 @@ def tags_search_model(query, top_n):
 
     data = event_tags_list + event_name_list + event_location_list + event_description_list
 
-    vectorizer = tf.keras.layers.experimental.preprocessing.TextVectorization(
-        max_tokens=None,
+    vectorizer = tf.keras.layers.TextVectorization(
+        max_tokens=10_000,
         output_mode='tf_idf',
-        output_sequence_length=None,
-        pad_to_max_tokens=False,
-        standardize='lower_and_strip_punctuation',
-        split='whitespace',
     )
 
-    new_data = data + [query]
-    vectorizer.adapt(new_data)
-    X = vectorizer(new_data)
+    vectorizer.adapt(data)
+    X = vectorizer(data+[query])
 
     cosine_sim = tf.linalg.matmul(X, X, transpose_b=True)
     sim_scores = list(enumerate(cosine_sim[-1, :-1]))
@@ -88,10 +73,10 @@ def tags_search_model(query, top_n):
     c=0
     for index, score in top_docs:
         matched_events = events_df[
-            (events_df['category']==new_data[index]) |
-            (events_df['name']==new_data[index]) |
-            (events_df['location']==new_data[index]) |
-            (events_df['description']==new_data[index])
+            (events_df['category']==data[index]) |
+            (events_df['name']==data[index]) |
+            (events_df['location']==data[index]) |
+            (events_df['description']==data[index])
             ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
         tags = [value if isinstance(value, str) else '' for value in matched_events['category']]

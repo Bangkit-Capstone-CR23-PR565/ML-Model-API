@@ -22,102 +22,123 @@ def retrain_all():
     cached_train = train.shuffle(100_000).batch(8192).cache()
     cached_test = test.batch(4096).cache()
 
-    event_names = events.batch(1_000)
+    event_ids = events.batch(1_000)
     user_ids = ratings.batch(1_000_000).map(lambda x: x["user_id"])
+    event_names = ratings.batch(1_000_000).map(lambda x: x["name"])
+    categories = ratings.batch(1_000_000).map(lambda x: x["category"])
 
-    unique_event_ids = np.unique(np.concatenate(list(event_names)))
+    unique_event_ids = np.unique(np.concatenate(list(event_ids)))
+    unique_event_names = np.unique(np.concatenate(list(event_names)))
+    unique_categories = np.unique(np.concatenate(list(categories)))
     unique_user_ids = np.unique(np.concatenate(list(user_ids)))
 
-    class RetrievalModel(tfrs.Model):
-        embedding_dimension = 32
+    class SubRankingModel(tf.keras.Model):
         def __init__(self):
             super().__init__()
-            self.event_model: tf.keras.Model = tf.keras.Sequential([
-                tf.keras.layers.IntegerLookup(vocabulary=unique_event_ids, mask_token=None),
-                tf.keras.layers.Embedding(len(unique_event_ids) + 1, self.embedding_dimension)
-            ])
-            self.user_model: tf.keras.Model = tf.keras.Sequential([
-                tf.keras.layers.IntegerLookup(vocabulary=unique_user_ids, mask_token=None),
-                tf.keras.layers.Embedding(len(unique_user_ids) + 1, self.embedding_dimension)
-            ])
-            self.task: tf.keras.layers.Layer = tfrs.tasks.Retrieval(
-            metrics = tfrs.metrics.FactorizedTopK(
-                candidates=events.batch(128).map(self.event_model)
-                ))
-
-        def compute_loss(self, features: Dict[Text, tf.Tensor], training=False) -> tf.Tensor:
-            user_embeddings = self.user_model(features["user_id"])
-            positive_event_embeddings = self.event_model(features["event_id"])
-
-            # parameter: query embedding, candidate embedding.
-            return self.task(user_embeddings, positive_event_embeddings)
-
-    class RankingModel(tf.keras.Model):
-        embedding_dimension = 32
-        def __init__(self):
-            super().__init__()
+            embedding_dimension = 32
+            max_tokens=10_000
             self.user_embeddings = tf.keras.Sequential([
-                tf.keras.layers.IntegerLookup(vocabulary=unique_user_ids, mask_token=None),
-                tf.keras.layers.Embedding(len(unique_user_ids) + 1, self.embedding_dimension)
+                tf.keras.layers.IntegerLookup(
+                    vocabulary=unique_user_ids, mask_token=None),
+                tf.keras.layers.Embedding(len(unique_user_ids) + 1, embedding_dimension)
             ])
             self.event_embeddings = tf.keras.Sequential([
-                tf.keras.layers.IntegerLookup(vocabulary=unique_event_ids, mask_token=None),
-                tf.keras.layers.Embedding(len(unique_event_ids) + 1, self.embedding_dimension)
+                tf.keras.layers.IntegerLookup(
+                    vocabulary=unique_event_ids, mask_token=None),
+                tf.keras.layers.Embedding(len(unique_event_ids) + 1, embedding_dimension)
             ])
-
+            self.title_vectorizer = tf.keras.layers.TextVectorization(max_tokens=max_tokens)
+            self.title_text_embedding = tf.keras.Sequential([
+                self.title_vectorizer,
+                tf.keras.layers.Embedding(max_tokens, embedding_dimension, mask_zero=True),
+                tf.keras.layers.GlobalAveragePooling1D()
+            ])
+            self.title_vectorizer.adapt(unique_event_names)
+            self.category_vectorizer = tf.keras.layers.TextVectorization(max_tokens=max_tokens,)
+            self.category_text_embedding = tf.keras.Sequential([
+                self.category_vectorizer,
+                tf.keras.layers.Embedding(max_tokens, embedding_dimension, mask_zero=True),
+                tf.keras.layers.GlobalAveragePooling1D()
+            ])
+            self.category_vectorizer.adapt(unique_categories)
             self.ratings = tf.keras.Sequential([
-            tf.keras.layers.Dense(256, activation="relu"),
-            tf.keras.layers.Dense(64, activation="relu"),
-            tf.keras.layers.Dense(1)
-        ])
-        
+                tf.keras.layers.Dense(256, activation="relu"),
+                tf.keras.layers.Dense(64, activation="relu"),
+                tf.keras.layers.Dense(1)
+            ])
         def call(self, inputs):
-            user_id, event_id = inputs
-
+            user_id, event_id, event_name, category = inputs
             user_embedding = self.user_embeddings(user_id)
             event_embedding = self.event_embeddings(event_id)
+            title_text_embedding = self.title_text_embedding(event_name)
+            category_text_embeddings = self.category_text_embedding(category)
+            return self.ratings(tf.concat([
+                user_embedding,
+                event_embedding,
+                title_text_embedding,
+                category_text_embeddings], axis=1))
 
-            # predict rating that the user would give to the event
-            return self.ratings(tf.concat([user_embedding, event_embedding], axis=1))
-        
-    class EventModel(tfrs.models.Model):
+    class RankingModel(tfrs.models.Model):
         def __init__(self):
             super().__init__()
-            self.ranking_model: tf.keras.Model = RankingModel()
-            self.task: tf.keras.layers.Layer = tfrs.tasks.Ranking(
-                loss = tf.keras.losses.MeanSquaredError(),
+            self.subranking_model = SubRankingModel()
+            self.rating_task = tfrs.tasks.Ranking(
+                loss=tf.keras.losses.MeanSquaredError(),
                 metrics=[tf.keras.metrics.RootMeanSquaredError()]
             )
-
-        # Call what model to use when making prediction
-        def call(self, features: Dict[str, tf.Tensor]) -> tf.Tensor:
-            return self.ranking_model(
-                (features["user_id"], features["event_id"]))
-
-        def compute_loss(self, features: Dict[Text, tf.Tensor], training=False) -> tf.Tensor:
-            # pop rating as the target label
-            labels = features.pop("user_rating")
-            
+        def call(self, features):
+            rating_predictions = self.subranking_model((features['user_id'],features['event_id'],features['name'],features['category']))
+            return rating_predictions
+        def compute_loss(self, features, training=False):
+            ratings=features.pop("user_rating")
             rating_predictions = self(features)
+            rating_loss = self.rating_task(labels=ratings, predictions=rating_predictions)
+            return rating_loss
 
-            # The task computes the loss and the metrics.
-            return self.task(labels=labels, predictions=rating_predictions)
+    class RetrievalModel(tfrs.Model):
+        def __init__(self):
+            super().__init__()
+            embedding_dimension = 32
+            self.user_embeddings = tf.keras.Sequential([
+                tf.keras.layers.IntegerLookup(
+                    vocabulary=unique_user_ids, mask_token=None),
+                tf.keras.layers.Embedding(len(unique_user_ids) + 1, embedding_dimension)
+            ])
+            self.event_embeddings = tf.keras.Sequential([
+                tf.keras.layers.IntegerLookup(
+                    vocabulary=unique_event_ids, mask_token=None),
+                tf.keras.layers.Embedding(len(unique_event_ids) + 1, embedding_dimension)
+            ])
+            self.retrieval_task = tfrs.tasks.Retrieval(
+                metrics=tfrs.metrics.FactorizedTopK(
+                    candidates=events.batch(128).map(self.event_embeddings)
+                )
+            )
+        def compute_loss(self, features, training=False):
+            user_embeddings = self.user_embeddings(features['user_id'])
+            event_embeddings = self.event_embeddings(features['event_id'])
+            return self.retrieval_task(user_embeddings, event_embeddings)
     
     # Fit and save retrieval model
     retrieval_model = RetrievalModel()
-    retrieval_model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=0.1))
-    retrieval_model.fit(cached_train, epochs=20, verbose=0)
-    index = tfrs.layers.factorized_top_k.BruteForce(retrieval_model.user_model, k=len(processed_df))
+    retrieval_model.compile(optimizer=tf.keras.optimizers.Adadelta(0.05))
+    retrieval_model.fit(cached_train, epochs=5, verbose=0)
+    index = tfrs.layers.factorized_top_k.BruteForce(retrieval_model.user_embeddings, k=len(processed_df))
     index.index_from_dataset(
-        tf.data.Dataset.zip((events.batch(100), events.batch(100).map(retrieval_model.event_model)))
+        tf.data.Dataset.zip((events.batch(100), events.batch(100).map(retrieval_model.event_embeddings)))
     )
     index(tf.constant([1]))
     tf.saved_model.save(index, retrieval_model_path)
 
     # Fit and save ranking model
-    ranking_model = EventModel()
-    ranking_model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=0.025))
-    ranking_model.fit(cached_train, epochs=10, verbose=0)
-    ranking_model({"user_id": tf.constant([1]), "event_id": tf.constant([2])})
+    ranking_model = RankingModel()
+    ranking_model.compile(optimizer=tf.keras.optimizers.SGD(0.1))
+    ranking_model.fit(cached_train, epochs=7, verbose=0)
+    ranking_model({
+        "user_id": tf.constant([1]),
+        "event_id": tf.constant([2]),
+        "name": tf.constant([""]),
+        "category": tf.constant([""]),
+        })
     tf.saved_model.save(ranking_model, ranking_model_path)
     return "Training finished"

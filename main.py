@@ -11,36 +11,36 @@ import scraper
 app = FastAPI()
 
 @app.get("/")
-def index():
+async def index():
     return df_loader.get_processed_df().to_dict()
 
 @app.get("/most-relevant/{user_id}")
-def items(user_id: int, limit: Union[int, None] = None):
+async def items(user_id: int, limit: Union[int, None] = None):
     return model_handler.retrieval_model(user_id)[:limit]
 
 @app.get("/top-recommendations/{user_id}")
-def rank(user_id: int, limit: Union[int, None] = None):
+async def rank(user_id: int, limit: Union[int, None] = None):
    return model_handler.ranking_model(user_id)[:limit]
 
 @app.get("/search/{query}")
-def search(query: str, limit: Union[int, None] = None):
+async def search(query: str, limit: Union[int, None] = None):
     return model_handler.tags_search_model(query, top_n=limit)
 
 # Current: events from database, ratings from csv
 @app.get("/update-data")
-def update_data():
+async def update_data():
     scraper.fetch_events()
     scraper.fetch_ratings()
     return "Data updated"
 
 @app.get("/retrain")
-def retrain():
+async def retrain():
     model_trainer.retrain_all()
     return "Model retrained"
 
 @app.on_event('startup')
 @repeat_every(seconds=60*60*12, wait_first=True)   # schedule task every half day
-def scheduled_task():
+async def scheduled_task():
     print(update_data())
     print(model_trainer.retrain_all())
 
