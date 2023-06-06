@@ -9,7 +9,6 @@ import scraper
 
 app = FastAPI()
 
-
 @app.get("/")
 async def index():
     return df_loader.get_processed_df().to_dict()
@@ -20,7 +19,7 @@ async def items(user_id: int, limit: Union[int, None] = None):
 
 @app.get("/event/top-recommendations/{user_id}")
 async def rank(user_id: int, limit: Union[int, None] = None):
-   return model_handler.ranking_model(user_id)[:limit]
+    return model_handler.ranking_model(user_id)[:limit]
 
 @app.get("/event/search/{query}")
 async def search(query: str, limit: Union[int, None] = None):

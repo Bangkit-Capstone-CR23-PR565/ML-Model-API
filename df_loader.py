@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Event
+from models import Event, Rating
 import os
 
 load_dotenv()
@@ -21,7 +21,12 @@ def get_events_df():
     return df
     # return pd.read_csv(events_path)
 def get_ratings_df():
-    return pd.read_csv(ratings_path)
+    db = SessionLocal()
+    query = db.query(Rating).all()
+    db.close()
+    df = pd.DataFrame([i.serialize for i in query])
+    return df
+    # return pd.read_csv(ratings_path)
 def get_combined_df():
     return pd.merge(get_ratings_df(), get_events_df(), left_on='event_id', right_on='id')
 def get_processed_df():

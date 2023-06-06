@@ -19,14 +19,36 @@ class Event(Base):
     @property
     def serialize(self):
         return {
-            "id": self.id,
-            "name": self.name,
-            "location": self.location,
-            "category": self.category,
-            "image_url": self.image_url,
-            "description": self.description,
-            "start_date": self.start_date,
-            "end_date": self.end_date,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
+            "id"            : self.id,
+            "name"          : self.name,
+            "location"      : self.location,
+            "category"      : self.category,
+            "image_url"     : self.image_url,
+            "description"   : self.description,
+            "start_date"    : self.start_date,
+            "end_date"      : self.end_date,
+            "created_at"    : self.created_at,
+            "updated_at"    : self.updated_at,
+        }
+
+class Rating(Base):
+    __tablename__   = 'rating'
+    id              = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True, nullable=False)
+    user_id         = db.Column(db.Integer)
+    event_id        = db.Column(db.Integer)
+    user_rating     = db.Column(db.Integer)
+    user_comment    = db.Column(db.Text)
+    created_at      = db.Column(db.DateTime)
+    updated_at      = db.Column(db.DateTime)
+
+    @property
+    def serialize(self):
+        return {
+            "id"            : self.id,
+            "user_id"       : self.user_id,
+            "event_id"      : self.event_id,
+            "user_rating"   : self.user_rating,
+            "user_comment"  : self.user_comment,
+            "created_at"    : self.created_at,
+            "updated_at"    : self.updated_at,
         }
