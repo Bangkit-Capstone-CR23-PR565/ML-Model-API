@@ -24,6 +24,7 @@ async def rank(user_id: int, limit: Union[int, None] = None):
 @app.get("/event/top-recommendations/{user_id}")
 async def recommend(user_id: int, limit: Union[int, None] = None):
     retrieval = model_handler.retrieval_model(user_id)
+    limit = limit if limit else len(retrieval)
     retrieval_ids = set()
     for i in retrieval:
         if len(retrieval_ids) >= limit:
