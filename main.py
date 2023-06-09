@@ -13,15 +13,15 @@ app = FastAPI()
 async def index():
     return df_loader.get_processed_df().to_dict()
 
-@app.get("/event/most-relevant/{user_id}")
+@app.get("/events/most-relevant/{user_id}")
 async def items(user_id: int, limit: Union[int, None] = None):
     return model_handler.retrieval_model(user_id)[:limit]
 
-@app.get("/event/top-ranking-predictions/{user_id}")
+@app.get("/events/top-ranking-predictions/{user_id}")
 async def rank(user_id: int, limit: Union[int, None] = None):
     return model_handler.ranking_model(user_id)[:limit]
 
-@app.get("/event/top-recommendations/{user_id}")
+@app.get("/events/top-recommendations/{user_id}")
 async def recommend(user_id: int, limit: Union[int, None] = None):
     retrieval = model_handler.retrieval_model(user_id)
     limit = limit if limit else len(retrieval)
@@ -34,7 +34,7 @@ async def recommend(user_id: int, limit: Union[int, None] = None):
     ranking_filtered = [i for i in ranking if i['id'] in retrieval_ids]
     return ranking_filtered
 
-@app.get("/event/search/{query}")
+@app.get("/events/search/{query}")
 async def search(query: str, limit: Union[int, None] = None):
     return model_handler.tags_search_model(query, top_n=limit)
 
