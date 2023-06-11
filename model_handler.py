@@ -74,7 +74,6 @@ def tags_search_model(query, top_n):
     for index, score in top_docs:
         if data[index] in read_index_data:
             continue
-        print(read_index_data)
         if float(score) == 0:
             break
         matched_events = events_df[
