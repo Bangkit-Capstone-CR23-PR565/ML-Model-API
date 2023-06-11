@@ -1,10 +1,12 @@
 from typing import Union
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi_utils.tasks import repeat_every
 from starlette.responses import RedirectResponse
 import model_handler
 import model_trainer
+import df_loader
+from models import Event, User
 
 app = FastAPI(
     title='ML-Model-API',
@@ -17,6 +19,16 @@ app = FastAPI(
 async def get_index():
     return RedirectResponse(url='/docs')
 
+@app.get("/events",
+         tags=['Events'],
+         description='Gets list of events.')
+async def get_events():
+    db = df_loader.SessionLocal()
+    query = db.query(Event).all()
+    db.close()
+    events = [i.serialize for i in query]
+    return events
+    
 @app.get("/events/most-relevant/{user_id}",
          tags=['Events'],
          description='Returns list of events sorted from most relevant of user with given id.')
@@ -33,15 +45,26 @@ async def get_top_ranking_predictions(user_id: int, limit: Union[int, None] = No
          tags=['Events'],
          description='Returns list of events sorted by most relevant, then picked out starting from the highest score prediction of user with given id.')
 async def get_top_recommendations(user_id: int, limit: Union[int, None] = None):
-    retrieval = model_handler.retrieval_model(user_id)
-    limit = limit if limit else len(retrieval)
-    retrieval_ids = set()
-    for i in retrieval:
-        if len(retrieval_ids) >= limit:
-            break
-        retrieval_ids.add(i['id'])
+    db = df_loader.SessionLocal()
+    try:
+        user: User = db.query(User).filter_by(id=user_id).one()
+    except Exception:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Error fetching user with id {user_id}"
+        )
+    try:
+        location_matched_user_events = db.query(Event).filter_by(location=user.location)
+    except Exception:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Error fetching location matched events of user with id {user_id}"
+        )
+    db.close()
+    category_user_event_ids = [i['id'] for i in await search_events(f'{user.category_interest}')]
+    matched_user_events = set(event.id for event in location_matched_user_events if event.id in category_user_event_ids)
     ranking = model_handler.ranking_model(user_id)
-    ranking_filtered = [i for i in ranking if i['id'] in retrieval_ids]
+    ranking_filtered = [i for i in ranking if i['id'] in matched_user_events]
     return ranking_filtered
 
 @app.get("/events/search/{query}",
