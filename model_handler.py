@@ -70,7 +70,11 @@ def tags_search_model(query, top_n):
     # handle multiple event with same list of tags
     output = []
     c=0
+    read_index_data = set()
     for index, score in top_docs:
+        if data[index] in read_index_data:
+            continue
+        print(read_index_data)
         if float(score) == 0:
             break
         matched_events = events_df[
@@ -80,12 +84,13 @@ def tags_search_model(query, top_n):
             (events_df['description']==data[index])
             ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
-        for index in range(len(matched_events)):
+        for i in range(len(ids)):
             if c >= top_n:
                 break
             output.append({
-                'id': ids[index],
+                'id': ids[i],
                 'match_score': float(score)
             })
             c += 1
+        read_index_data.add(data[index])
     return output

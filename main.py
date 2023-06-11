@@ -53,19 +53,12 @@ async def get_top_recommendations(user_id: int, limit: Union[int, None] = None):
             status.HTTP_400_BAD_REQUEST,
             f"Error fetching user with id {user_id}"
         )
-    try:
-        location_matched_user_events = db.query(Event).filter_by(location=user.location)
-    except Exception:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Error fetching location matched events of user with id {user_id}"
-        )
     db.close()
-    category_user_event_ids = [i['id'] for i in await search_events(f'{user.category_interest}')]
-    matched_user_events = set(event.id for event in location_matched_user_events if event.id in category_user_event_ids)
-    ranking = model_handler.ranking_model(user_id)
-    ranking_filtered = [i for i in ranking if i['id'] in matched_user_events]
-    return ranking_filtered
+    # corner case: category != False, location != partially correct.
+    # Should be ok since match score should be lower.
+    # Problem: some high scoring events only partially correct instead of matching all fields.
+    # Solve: give more query vocabulary.
+    return model_handler.tags_search_model(f"{user.category_interest} {user.location}", top_n=limit)
 
 @app.get("/events/search/{query}",
          tags=['Events'],
