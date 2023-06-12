@@ -85,10 +85,6 @@ def tags_search_model(query, top_n, filter_words=None):
                 break
             output.append({
                 'id': ids[i],
-                'name': matched_events.iloc[i]['name'],
-                'location': matched_events.iloc[i]['location'],
-                'category': matched_events.iloc[i]['category'],
-                'description': matched_events.iloc[i]['description'],
                 'match_score': float(score)
             })
             c += 1
