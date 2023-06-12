@@ -41,11 +41,9 @@ def ranking_model(user_id):
         } for id,rating in zip(events_df['id'].to_list(),model_rating_predictions)]
     return sorted(ratings, key=lambda x: x['rating_prediction'], reverse=True)
 
-def tags_search_model(query, top_n):
+def tags_search_model(query, top_n, filter_words=None):
     events_df = df_loader.get_events_df()
-    if top_n == None:
-        top_n = len(events_df)
-    
+    top_n = top_n if top_n else len(events_df)
     # to remove string quotes correctly, we need to parse data into list first, then join it back into string
     event_tags_list = [value if isinstance(value, str) else '' for value in events_df['category']]
     event_name_list = [value if isinstance(value, str) else '' for value in events_df['name']]
@@ -55,8 +53,7 @@ def tags_search_model(query, top_n):
     data = event_tags_list + event_name_list + event_location_list + event_description_list
 
     vectorizer = tf.keras.layers.TextVectorization(
-        max_tokens=10_000,
-        output_mode='tf_idf',
+        output_mode='tf_idf'
     )
 
     vectorizer.adapt(data)
@@ -77,17 +74,21 @@ def tags_search_model(query, top_n):
         if float(score) == 0:
             break
         matched_events = events_df[
-            (events_df['category']==data[index]) |
-            (events_df['name']==data[index]) |
-            (events_df['location']==data[index]) |
-            (events_df['description']==data[index])
-            ]
+            (events_df['category'] == data[index])      & (events_df['category'].isin(filter_words) if filter_words else True) |
+            (events_df['name'] == data[index])          & (events_df['name'].isin(filter_words) if filter_words else True) |
+            (events_df['location'] == data[index])      & (events_df['location'].isin(filter_words) if filter_words else True)|
+            (events_df['description'] == data[index])   & (events_df['description'].isin(filter_words) if filter_words else True)
+        ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
         for i in range(len(ids)):
             if c >= top_n:
                 break
             output.append({
                 'id': ids[i],
+                'name': matched_events.iloc[i]['name'],
+                'location': matched_events.iloc[i]['location'],
+                'category': matched_events.iloc[i]['category'],
+                'description': matched_events.iloc[i]['description'],
                 'match_score': float(score)
             })
             c += 1

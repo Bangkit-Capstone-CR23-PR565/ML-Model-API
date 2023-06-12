@@ -54,11 +54,7 @@ async def get_top_recommendations(user_id: int, limit: Union[int, None] = None):
             f"Error fetching user with id {user_id}"
         )
     db.close()
-    # corner case: category != False, location != partially correct.
-    # Should be ok since match score should be lower.
-    # Problem: some high scoring events only partially correct instead of matching all fields.
-    # Solve: give more query vocabulary.
-    return model_handler.tags_search_model(f"{user.category_interest} {user.location}", top_n=limit)
+    return model_handler.tags_search_model(f"{user.location} {user.category_interest}", top_n=limit, filter_words=[user.location, user.category_interest])
 
 @app.get("/events/search/{query}",
          tags=['Events'],
@@ -76,4 +72,4 @@ async def retrain_model():
 @app.on_event('startup')
 @repeat_every(seconds=60*60*12, wait_first=True)   # schedule task every half day
 async def scheduled_task():
-    print(model_trainer.retrain_all())
+    model_trainer.retrain_all()

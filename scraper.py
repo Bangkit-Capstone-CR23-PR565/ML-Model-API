@@ -20,7 +20,6 @@ def fetch_events():
 
     table = soup.find('table')
 
-    # headers = [header.text.strip() for header in table.find_all('th')]
     headers = ['id', 'date', 'event_name', 'location', 'description', 'tags', 'interested']
 
     rows = []
@@ -28,7 +27,7 @@ def fetch_events():
     for tr in table.find_all('tr'):
         row = []
 
-        # pass featured cards
+        # skip featured cards
         if (tr.find('svg', class_="svg-inline--fa fa-star fa-w-18 me-1 text-orange-l") != None):
             continue
 
@@ -86,9 +85,9 @@ def fetch_ratings():
     ratings_df.reset_index(drop=True, inplace=True)
 
     # check for duplicated
-    duplicated_series = ratings_df.duplicated(subset=['user_id', 'event_id'], keep=False)
-    for row in range(0,len(duplicated_series)):
-        if duplicated_series[row] == True:
-            print(row)
+    # duplicated_series = ratings_df.duplicated(subset=['user_id', 'event_id'], keep=False)
+    # for row in range(0,len(duplicated_series)):
+    #     if duplicated_series[row] == True:
+    #         print(row)
 
     ratings_df.to_csv('ratings.csv', sep=',', encoding='utf-8', index=False)
