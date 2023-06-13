@@ -74,10 +74,10 @@ def tags_search_model(query, top_n, filter_words=None):
         if float(score) == 0:
             break
         matched_events = events_df[
-            (events_df['category'] == data[index])      & (events_df['category'].isin(filter_words) if filter_words else True) |
-            (events_df['name'] == data[index])          & (events_df['name'].isin(filter_words) if filter_words else True) |
-            (events_df['location'] == data[index])      & (events_df['location'].isin(filter_words) if filter_words else True)|
-            (events_df['description'] == data[index])   & (events_df['description'].isin(filter_words) if filter_words else True)
+            (events_df['category'] == data[index])      & (events_df['category'].str.contains('|'.join(filter_words['category'].split(', ')), case=False, regex=True) if "category" in filter_words else True) |
+            (events_df['name'] == data[index])          & (events_df['name'].str.contains(filter_words['name'], case=False) if "name" in filter_words else True) |
+            (events_df['location'] == data[index])      & (events_df['location'].str.contains(filter_words['location'], case=False) if "location" in filter_words else True)|
+            (events_df['description'] == data[index])   & (events_df['description'].str.contains(filter_words['description'], case=False) if "description" in filter_words else True)
         ]
         ids = [value if not np.isnan(value) else '' for value in matched_events['id']]
         for i in range(len(ids)):
@@ -85,6 +85,11 @@ def tags_search_model(query, top_n, filter_words=None):
                 break
             output.append({
                 'id': ids[i],
+                # Debug purposes:
+                # 'name': matched_events.iloc[i]['name'],
+                # 'location': matched_events.iloc[i]['location'],
+                # 'description': matched_events.iloc[i]['description'],
+                # 'category': matched_events.iloc[i]['category'],
                 'match_score': float(score)
             })
             c += 1

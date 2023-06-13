@@ -54,7 +54,9 @@ async def get_top_recommendations(user_id: int, limit: Union[int, None] = None):
             f"Error fetching user with id {user_id}"
         )
     db.close()
-    return model_handler.tags_search_model(f"{user.location} {user.category_interest}", top_n=limit, filter_words=[user.location, user.category_interest])
+    return model_handler.tags_search_model(f"{user.location} {user.category_interest}", top_n=limit, filter_words={
+        "location": user.location,
+        "category": user.category_interest})
 
 @app.get("/events/search/{query}",
          tags=['Events'],
