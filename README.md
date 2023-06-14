@@ -22,6 +22,8 @@ This ML project is for our final project at Bangkit Academy 2023.
 
 This repository serves the model as a RESTful API service using FastAPI Python framework.
 
+## Deployment Link: http://35.220.199.159/
+
 # How to use
 ## Prerequisites
 1. [Python](https://www.python.org/downloads/) version 3.6 or above
