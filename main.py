@@ -10,7 +10,7 @@ from models import Event, User
 
 app = FastAPI(
     title='ML-Model-API',
-    description='This is a documentation for Capstone Project Event.mu API for serving machine learning model.',
+    description='This is a documentation for Capstone Project boothUP! API for serving machine learning model.',
 )
 
 @app.get("/",
